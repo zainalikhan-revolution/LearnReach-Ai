@@ -1,14 +1,12 @@
 const { remember, recall, safeJsonFetch, dedupeByUrl } = require("./_lib");
 
-// Vercel style default export
 module.exports = async (req, res) => {
   const cached = recall("jobs");
   if (cached) return res.status(200).json(cached);
 
-  const greenhouseCompanies = ["openai", "stripe", "notion"];  // edit these
-  const leverCompanies = ["ramp", "robinhood", "chime"];       // edit these
+  const greenhouseCompanies = ["openai", "stripe", "notion"];
+  const leverCompanies = ["ramp", "robinhood", "chime"];
 
-  // Greenhouse
   const gh = (await Promise.all(
     greenhouseCompanies.map(async c => {
       const data = await safeJsonFetch(`https://boards-api.greenhouse.io/v1/boards/${c}/jobs`);
@@ -23,7 +21,6 @@ module.exports = async (req, res) => {
     })
   )).flat();
 
-  // Lever
   const lv = (await Promise.all(
     leverCompanies.map(async c => {
       const data = await safeJsonFetch(`https://api.lever.co/v0/postings/${c}?mode=json`);
@@ -38,7 +35,6 @@ module.exports = async (req, res) => {
     })
   )).flat();
 
-  // Remotive (no key)
   const rmData = await safeJsonFetch("https://remotive.com/api/remote-jobs");
   const rm = (rmData?.jobs || []).map(j => ({
     id: `remotive_${j.id}`,
@@ -49,35 +45,11 @@ module.exports = async (req, res) => {
     source: "remotive",
   }));
 
-  // USAJOBS (optional free key)
-  let us = [];
-  if (process.env.USAJOBS_API_KEY) {
-    const usData = await safeJsonFetch(
-      "https://data.usajobs.gov/api/Search?Keyword=internship%20OR%20machine%20learning%20OR%20AI",
-      {
-        headers: {
-          "User-Agent": "you@example.com",
-          "Authorization-Key": process.env.USAJOBS_API_KEY,
-        },
-      }
-    );
-    const arr = usData?.SearchResult?.SearchResultItems || [];
-    us = arr.map((x, i) => {
-      const d = x.MatchedObjectDescriptor || {};
-      return {
-        id: `usajobs_${d.PositionID || i}`,
-        title: d.PositionTitle,
-        company: d.OrganizationName,
-        location: (d.PositionLocation || [])[0]?.LocationName,
-        url: d.PositionURI,
-        source: "usajobs",
-      };
-    });
-  }
-
-  const results = dedupeByUrl([...gh, ...lv, ...rm, ...us]).slice(0, 300);
+  const results = dedupeByUrl([...gh, ...lv, ...rm]).slice(0, 300);
   const payload = { count: results.length, results };
   remember("jobs", payload);
   res.status(200).json(payload);
 };
+
+
 
