@@ -72,4 +72,9 @@
     "vite": "^5.4.19"
   }
 }
-
+{
+  "dependencies": {
+    "node-fetch": "^3.3.2",
+    "rss-parser": "^3.13.0"
+  }
+}
